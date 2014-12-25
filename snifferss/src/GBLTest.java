@@ -123,55 +123,16 @@ class FrontFrame extends JFrame
                 detailindex = table.rowAtPoint(mousepoint);   
                 text.setText(Sniffer.infodata[detailindex]);
                 hex.setText(Sniffer.hexdata[detailindex]);
-                head.setText(sniffer.iphead + sniffer.subhead);
+                try {
+					head.setText(sniffer.getiphead() + sniffer.gethead());
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
                 repaint();
             }
         });
-		
-//		startbutton.addMouseListener(new java.awt.event.MouseAdapter()
-//        {
-//            public void mouseClicked(java.awt.event.MouseEvent e)
-//            {
-//    			flag = true;
-//    			while(flag){ 
-//    				try {
-//						tablemodel.addRow(sniffer.getInfo());
-//						tablemodel.fireTableDataChanged();
-//	    			    table.invalidate();
-//	    				try {
-//							Thread.sleep(300);
-//						} catch (InterruptedException e1) {
-//							// TODO Auto-generated catch block
-//							e1.printStackTrace();
-//						}
-//	    			    table.repaint();
-//	    				try {
-//							Thread.sleep(300);
-//						} catch (InterruptedException e1) {
-//							// TODO Auto-generated catch block
-//							e1.printStackTrace();
-//						}
-//					} catch (IOException e1) {
-//						// TODO Auto-generated catch block
-//						e1.printStackTrace();
-//					}
-//    				
-//    			}
-//            }
-//    			
-//        });
-//		
-//		endbutton.addMouseListener(new java.awt.event.MouseAdapter()
-//        {
-//            public void mouseClicked(java.awt.event.MouseEvent e)
-//            {
-//                flag = false;
-//                
-//                System.out.println("click end");
-//            }
-//        });
-//		
-		
+
 		//布局
 		add(infolabel, new GBC(2,3,1,3).setAnchor(GBC.NORTHWEST).setIpad(50, 120));
 		add(headlabel, new GBC(0,3,1,3).setAnchor(GBC.NORTH).setIpad(50, 120));
@@ -186,8 +147,7 @@ class FrontFrame extends JFrame
 		add(infoscrollPane, new GBC(0,1,3,3).setAnchor(GBC.NORTH).setIpad(580, 180));
 		add(hexscrollPane, new GBC(2,5,1,2).setAnchor(GBC.EAST).setIpad(380, 120));
 		add(headscrollPane, new GBC(0,4,2,3).setAnchor(GBC.EAST).setIpad(200, 200));
-		add(textscrollPane, new GBC(2,4,1,1).setAnchor(GBC.EAST).setIpad(380, 80));
-			
+		add(textscrollPane, new GBC(2,4,1,1).setAnchor(GBC.EAST).setIpad(380, 80));			
 	
 		//监听
 		ActionListener devicelistener = new DeviceAction();
@@ -210,15 +170,14 @@ class FrontFrame extends JFrame
 	{
 		public MyThread(){}
 		public void run(){
-			while(flag){
-				
+			while(flag){				
 		         try {
 		        	 try {
 						tablemodel.addRow(sniffer.getInfo());
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-						tablemodel.fireTableDataChanged();
+					    tablemodel.fireTableDataChanged();
 						table.invalidate();
 						Thread.sleep(100);
 				         table.repaint();
@@ -235,33 +194,10 @@ class FrontFrame extends JFrame
 	{  
 		public void actionPerformed(ActionEvent event)
 		{    
-			//				for(int i = 0; i < 15; i++){
-			//					
-			//					 tablemodel.addRow(sniffer.getInfo());
-			//			         //String[] str = sniffer.getInfo();
-			//			         table.invalidate();   
-			//			         table.repaint();
-			//			         tablemodel.fireTableDataChanged();
-			//					// tablemodel.fireTableChanged(tablemodel);			
-			//				}
-							flag = true;
-							thread = new MyThread();
-							thread.start();
-			//				while(flag){
-			//					
-			//			         try {
-			//			        	 tablemodel.addRow(sniffer.getInfo());
-			//							tablemodel.fireTableDataChanged();
-			//							table.invalidate();
-			//							Thread.sleep(300);
-			//					         table.repaint();
-			//						Thread.sleep(300);
-			//					} catch (InterruptedException e) {
-			//						// TODO Auto-generated catch block
-			//						e.printStackTrace();
-			//					}
-			//				}
-							table.repaint();
+			flag = true;
+			thread = new MyThread();
+			thread.start();
+			table.repaint();
 		}	
 	}
 
@@ -278,6 +214,7 @@ class FrontFrame extends JFrame
 		}	
 	}
 	
+	//获取网卡信息
 	private class DeviceAction implements ActionListener
 	{		
 		public void actionPerformed(ActionEvent event)
@@ -324,41 +261,90 @@ class Sniffer
 	        return hs.toUpperCase();   
 	}
 	
+	public Packet getpacket() throws IOException{
+		JpcapCaptor captor = JpcapCaptor.openDevice(devices[FrontFrame.networkinterfaceNumber], 65535, false, 20);
+		Packet packet = captor.getPacket();
+		while(packet == null)
+			packet = captor.getPacket();
+		return packet;
+	}
+	
 	//得到报头及详细信息
 	public String[] getInfo() throws IOException
 	{	
-		System.out.println(" start");
 		String s[] = new String[7];
-		String str[] = new String[2000];//xiaole
-		System.out.println(" str");
+		String str[] = new String[2000];//最后改65536成
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		System.out.println(" df");
-		JpcapCaptor captor = JpcapCaptor.openDevice(devices[FrontFrame.networkinterfaceNumber], 65535, false, 20);
-		System.out.println(" captor");
-		Packet packet = captor.getPacket();
-		while(packet == null ||packet.data == null)
-			packet = captor.getPacket();
-		
-		if(packet.data.length > 0)
-			System.out.println("data"
-				+packet.data[0]);
-		else
-			System.out.println(" no data");
+		Packet packet = getpacket();
 
 		//详细信息输出及16进制
-		if(packet.data != null){
+		if(packet != null && packet.data != null){
 			infodata[infodatacount] = "信息：" + "\n" + new String(packet.data, "UTF-8");
-			System.out.println(infodata[infodatacount]);
+		//	System.out.println(infodata[infodatacount]);
 			infodatacount++;
 			hexdata[hexdatacount] = "16进制：\n" + BytesToHexString(packet.data);
 	        hexdatacount++;
 		}
-		else
-			return null;
+//		else
+//			return null;	
 		
-        
-		
+        //TCP包 报头及协议分析
+		if(packet instanceof jpcap.packet.TCPPacket){
+			TCPPacket p = (TCPPacket)packet;
+			s[0] = String.valueOf(count);
+			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
+			s[2] = String.valueOf(p.src_ip);
+			s[3] = String.valueOf(p.dst_ip);
+			s[4] = "TCP";
+			s[5] = ss;
+			s[6] = String.valueOf(p.length);			
+			System.out.println(str);
+		}
+		//UDP包
+		else if(packet instanceof jpcap.packet.UDPPacket){
+			UDPPacket p=(UDPPacket)packet; 
+			s[0] = String.valueOf(count);
+		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
+			s[2] = String.valueOf(p.src_ip);
+			s[3] = String.valueOf(p.dst_ip);
+			s[4] = "UDP";
+			//s[5] = String.valueOf(p.data);	
+			ss = new String(p.data,"UTF-8");
+			s[5] = ss;
+			s[6] = String.valueOf(p.length);
+		}
+		//ICMP包
+		else if(packet instanceof jpcap.packet.ICMPPacket){
+			ICMPPacket p=(ICMPPacket)packet; 
+			s[0] = String.valueOf(count);
+			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
+			s[2] = String.valueOf(p.src_ip);
+			s[3] = String.valueOf(p.dst_ip);
+			s[4] = "ICMP";
+			s[5] = String.valueOf(p.code);	
+			s[6] = String.valueOf(p.length);
+		}
+		//ARP包
+		else if(packet instanceof jpcap.packet.ARPPacket){
+			ARPPacket p=(ARPPacket)packet;
+			s[0] = String.valueOf(count);
+		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
+			s[2] = String.valueOf(p.getSenderHardwareAddress());
+			s[3] = String.valueOf(p.getTargetHardwareAddress());
+			s[4] = "ARP";
+			s[5] = " ";		
+			s[6] = String.valueOf(p.len);
+	    }else{
+	    	//s[0] = String.valueOf(count);
+			count--;
+	    }
+		count++;
+		return s;//表格中的数据		
+	}
+	
+	public String getiphead() throws IOException{
 		//IP报头
+		Packet packet = getpacket();
 		if((packet instanceof jpcap.packet.IPPacket)){
 		    IPPacket ipp = (IPPacket)packet;
 		    iphead = "IP报头\n" + "版本：" + String.valueOf(ipp.version) + "\n" +
@@ -376,77 +362,48 @@ class Sniffer
 		         "目的地址："+String.valueOf(ipp.dst_ip) + "\n" +
 		         "选项： "+String.valueOf(ipp.option) + "\n\n";
 		}
-		
-        
-        //TCP包 报头及协议分析
+		return iphead;
+	}
+	
+	public String gethead() throws IOException{
+		Packet packet = getpacket();
 		if(packet instanceof jpcap.packet.TCPPacket){
 			TCPPacket p = (TCPPacket)packet;
-			s[0] = String.valueOf(count);
-			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
-			s[2] = String.valueOf(p.src_ip);
-			s[3] = String.valueOf(p.dst_ip);
-			s[4] = "TCP";
-			s[5] = ss;
-			s[6] = String.valueOf(p.length);
 			subhead = "TCP报头\n"+"源端口号："+String.valueOf(p.src_port)+"\n"+
-			          "目的端口号："+String.valueOf(p.dst_port)+"\n"+
-			          "发送序号："+String.valueOf(p.sequence)+"\n"+
-			          "确认序号："+String.valueOf(p.ack_num)+"\n"+
-			          "头部长度："+String.valueOf(p.header.length)+"\n"+
-			          "URG："+String.valueOf(p.urg)+"\n"+
-			          "ACK："+String.valueOf(p.ack)+"\n"+
-			          "PSH："+String.valueOf(p.psh)+"\n"+
-			          "RST："+String.valueOf(p.rst)+"\n"+
-			          "SYN："+String.valueOf(p.syn)+"\n"+
-			          "FIN："+String.valueOf(p.syn)+"\n"+
-			          "窗口："+String.valueOf(p.window)+"\n"+
-			          "校验和："+String.valueOf(p.header[16])+String.valueOf(p.header[17])+"\n"+
-			          "紧急指针："+String.valueOf(p.header[18])+String.valueOf(p.header[19])+"\n"+
-			          //"任选项："+String.valueOf(p.option.toString())+"\n"+
-			          "填充："+String.valueOf(p.header[23]);
-			System.out.println(str);
+	          "目的端口号："+String.valueOf(p.dst_port)+"\n"+
+	          "发送序号："+String.valueOf(p.sequence)+"\n"+
+	          "确认序号："+String.valueOf(p.ack_num)+"\n"+
+	          "头部长度："+String.valueOf(p.header.length)+"\n"+
+	          "URG："+String.valueOf(p.urg)+"\n"+
+	          "ACK："+String.valueOf(p.ack)+"\n"+
+	          "PSH："+String.valueOf(p.psh)+"\n"+
+	          "RST："+String.valueOf(p.rst)+"\n"+
+	          "SYN："+String.valueOf(p.syn)+"\n"+
+	          "FIN："+String.valueOf(p.syn)+"\n"+
+	          "窗口："+String.valueOf(p.window)+"\n"+
+	          "校验和："+String.valueOf(p.header[16])+String.valueOf(p.header[17])+"\n"+
+	          "紧急指针："+String.valueOf(p.header[18])+String.valueOf(p.header[19])+"\n"+
+	          //"任选项："+String.valueOf(p.option.toString())+"\n"+
+	          "填充："+String.valueOf(p.header[23]);
 		}
-		//UDP包
-		else if(packet instanceof jpcap.packet.UDPPacket){
+		
+		if(packet instanceof jpcap.packet.UDPPacket){
 			UDPPacket p=(UDPPacket)packet; 
-			s[0] = String.valueOf(count);
-		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
-			s[2] = String.valueOf(p.src_ip);
-			s[3] = String.valueOf(p.dst_ip);
-			s[4] = "UDP";
-			//s[5] = String.valueOf(p.data);	
-			ss = new String(p.data,"UTF-8");
-			s[5] = ss;
-			s[6] = String.valueOf(p.length);
 			subhead = "UDP报头\n"+"源端口："+ String.valueOf(p.src_port)+"\n"+
 			          "目的端口："+String.valueOf(p.dst_port)+"\n"+
 			          "UDP长度"+String.valueOf(p.len)+"\n"+
 /*校验和！*/	          "UDP校验和"+String.valueOf(p.header[6]+p.header[7]);
 		}
-		//ICMP包
-		else if(packet instanceof jpcap.packet.ICMPPacket){
+		
+		if(packet instanceof jpcap.packet.ICMPPacket){
 			ICMPPacket p=(ICMPPacket)packet; 
-			s[0] = String.valueOf(count);
-			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
-			s[2] = String.valueOf(p.src_ip);
-			s[3] = String.valueOf(p.dst_ip);
-			s[4] = "ICMP";
-			s[5] = String.valueOf(p.code);	
-			s[6] = String.valueOf(p.length);
 			subhead = "ICMP报头"+"\n"+"类型："+String.valueOf(p.version)+"\n"+
 			          "代码："+String.valueOf(p.data)+"\n"+
 			          "校验和"+String.valueOf(p.header[2]+p.header[3]);
 		}
 		//ARP包
-		else if(packet instanceof jpcap.packet.ARPPacket){
+	    if(packet instanceof jpcap.packet.ARPPacket){
 			ARPPacket p=(ARPPacket)packet;
-			s[0] = String.valueOf(count);
-		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
-			s[2] = String.valueOf(p.getSenderHardwareAddress());
-			s[3] = String.valueOf(p.getTargetHardwareAddress());
-			s[4] = "ARP";
-			s[5] = " ";		
-			s[6] = String.valueOf(p.len);
 			subhead = "ARP报头\n"+"硬件类型："+String.valueOf(p.hardtype)+"\n"+
 			          "协议类型："+String.valueOf(p.prototype)+"\n"+
 			          "MAC地址长度："+String.valueOf(p.caplen)+"\n"+
@@ -456,10 +413,9 @@ class Sniffer
 			          "发送方IP地址:"+String.valueOf(p.sender_protoaddr)+"\n"+
 			          "接收方MAC地址:"+String.valueOf(p.target_hardaddr)+"\n"+
 			          "接收方IP地址:"+String.valueOf(p.target_protoaddr);
-	    }else
-			count--;
-		count++;
-		return s;//表格中的数据		
+	    }
+	    return subhead;
 	}
+	
 }
 
