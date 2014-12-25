@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 
 import GBC.GBC;
 import javax.swing.*;
@@ -20,8 +21,7 @@ public class GBLTest {
 	public static void main(String[] args)
 	{	
 		firstThread firstthread = new firstThread();
-		firstthread.start();
-		
+		firstthread.start();		
 	}
 }
 
@@ -123,12 +123,7 @@ class FrontFrame extends JFrame
                 detailindex = table.rowAtPoint(mousepoint);   
                 text.setText(Sniffer.infodata[detailindex]);
                 hex.setText(Sniffer.hexdata[detailindex]);
-                try {
-					head.setText(sniffer.getiphead() + sniffer.gethead());
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+                head.setText(Sniffer.iphead[detailindex] + Sniffer.subhead[detailindex]);
                 repaint();
             }
         });
@@ -227,15 +222,15 @@ class FrontFrame extends JFrame
 
 class Sniffer
 {
-	public static String[] infodata = new String[50];
+	public static String[] infodata = new String[200];
 	int infodatacount = 0;
-	public static String[] hexdata = new String[50];
+	public static String[] hexdata = new String[200];
 	int hexdatacount = 0;
 	public NetworkInterface[] devices = JpcapCaptor.getDeviceList();
 	public int count = 0;
 	public String ss = new String();
-	public String iphead = new String();
-	public String subhead = new String();
+	public static String[] iphead = new String[200];
+	public static String[] subhead = new String[200];
 	
 	public String[] getDevice()
 	{
@@ -275,6 +270,8 @@ class Sniffer
 		String s[] = new String[7];
 		String str[] = new String[2000];//最后改65536成
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		gethead();
+		getiphead();
 		Packet packet = getpacket();
 
 		//详细信息输出及16进制
@@ -295,7 +292,7 @@ class Sniffer
 			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
 			s[2] = String.valueOf(p.src_ip);
 			s[3] = String.valueOf(p.dst_ip);
-			s[4] = "TCP";
+			s[4] = String.valueOf(p.protocol);
 			s[5] = ss;
 			s[6] = String.valueOf(p.length);			
 			System.out.println(str);
@@ -347,11 +344,11 @@ class Sniffer
 		Packet packet = getpacket();
 		if((packet instanceof jpcap.packet.IPPacket)){
 		    IPPacket ipp = (IPPacket)packet;
-		    iphead = "IP报头\n" + "版本：" + String.valueOf(ipp.version) + "\n" +
+		    iphead[count] = "IP报头\n" + "版本：" + String.valueOf(ipp.version) + "\n" +
 		         "头长度： "+String.valueOf(ipp.header.length) + "\n" +
 		         "服务类型： "+String.valueOf(ipp.header[1]) + "\n" +
 		         "总长度："+String.valueOf(ipp.len) + "\n" +
-		         "标识： "+String.valueOf(ipp.header[4]) + String.valueOf(ipp.header[5]) + "\n" +
+		         "标识： "+String.valueOf(ipp.flow_label) + "\n" +
 		         "DF："+String.valueOf(ipp.dont_frag) + "\n" +
 		         "MF："+String.valueOf(ipp.more_frag) + "\n" +
 		         "分段偏移量： "+String.valueOf(ipp.offset) + "\n" +
@@ -361,15 +358,17 @@ class Sniffer
 		         "源地址："+String.valueOf(ipp.src_ip) + "\n" +
 		         "目的地址："+String.valueOf(ipp.dst_ip) + "\n" +
 		         "选项： "+String.valueOf(ipp.option) + "\n\n";
+		}else{
+			iphead[count] = "无ip报头\n";
 		}
-		return iphead;
+		return iphead[count];
 	}
 	
 	public String gethead() throws IOException{
 		Packet packet = getpacket();
 		if(packet instanceof jpcap.packet.TCPPacket){
 			TCPPacket p = (TCPPacket)packet;
-			subhead = "TCP报头\n"+"源端口号："+String.valueOf(p.src_port)+"\n"+
+			subhead[count] = "TCP报头\n"+"源端口号："+String.valueOf(p.src_port)+"\n"+
 	          "目的端口号："+String.valueOf(p.dst_port)+"\n"+
 	          "发送序号："+String.valueOf(p.sequence)+"\n"+
 	          "确认序号："+String.valueOf(p.ack_num)+"\n"+
@@ -382,14 +381,14 @@ class Sniffer
 	          "FIN："+String.valueOf(p.syn)+"\n"+
 	          "窗口："+String.valueOf(p.window)+"\n"+
 	          "校验和："+String.valueOf(p.header[16])+String.valueOf(p.header[17])+"\n"+
-	          "紧急指针："+String.valueOf(p.header[18])+String.valueOf(p.header[19])+"\n"+
+	          "紧急指针："+String.valueOf(p.urgent_pointer)+"\n"+
 	          //"任选项："+String.valueOf(p.option.toString())+"\n"+
 	          "填充："+String.valueOf(p.header[23]);
 		}
 		
 		if(packet instanceof jpcap.packet.UDPPacket){
 			UDPPacket p=(UDPPacket)packet; 
-			subhead = "UDP报头\n"+"源端口："+ String.valueOf(p.src_port)+"\n"+
+			subhead[count] = "UDP报头\n"+"源端口："+ String.valueOf(p.src_port)+"\n"+
 			          "目的端口："+String.valueOf(p.dst_port)+"\n"+
 			          "UDP长度"+String.valueOf(p.len)+"\n"+
 /*校验和！*/	          "UDP校验和"+String.valueOf(p.header[6]+p.header[7]);
@@ -397,24 +396,24 @@ class Sniffer
 		
 		if(packet instanceof jpcap.packet.ICMPPacket){
 			ICMPPacket p=(ICMPPacket)packet; 
-			subhead = "ICMP报头"+"\n"+"类型："+String.valueOf(p.version)+"\n"+
+			subhead[count] = "ICMP报头"+"\n"+"类型："+String.valueOf(p.version)+"\n"+
 			          "代码："+String.valueOf(p.data)+"\n"+
 			          "校验和"+String.valueOf(p.header[2]+p.header[3]);
 		}
 		//ARP包
 	    if(packet instanceof jpcap.packet.ARPPacket){
 			ARPPacket p=(ARPPacket)packet;
-			subhead = "ARP报头\n"+"硬件类型："+String.valueOf(p.hardtype)+"\n"+
+			subhead[count] = "ARP报头\n"+"硬件类型："+String.valueOf(p.hardtype)+"\n"+
 			          "协议类型："+String.valueOf(p.prototype)+"\n"+
 			          "MAC地址长度："+String.valueOf(p.caplen)+"\n"+
 			          "协议地址长度："+String.valueOf(p.plen)+"\n"+
 			          "操作码："+String.valueOf(p.operation)+"\n"+
-			          "发送方MAC地址:"+String.valueOf(p.sender_hardaddr)+"\n"+
-			          "发送方IP地址:"+String.valueOf(p.sender_protoaddr)+"\n"+
-			          "接收方MAC地址:"+String.valueOf(p.target_hardaddr)+"\n"+
-			          "接收方IP地址:"+String.valueOf(p.target_protoaddr);
+			          "发送方MAC地址:"+String.valueOf(Arrays.toString(p.sender_hardaddr))+"\n"+
+			          "发送方IP地址:"+String.valueOf(Arrays.toString(p.sender_protoaddr))+"\n"+
+			          "接收方MAC地址:"+String.valueOf(Arrays.toString(p.target_hardaddr))+"\n"+
+			          "接收方IP地址:"+String.valueOf(Arrays.toString(p.target_protoaddr));
 	    }
-	    return subhead;
+	    return subhead[count];
 	}
 	
 }
