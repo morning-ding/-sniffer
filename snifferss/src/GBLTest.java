@@ -65,7 +65,14 @@ class FrontFrame extends JFrame
 	public FrontFrame() throws IOException
 	{
 		setTitle("sniffer");
-		setSize(800,600);		
+		setSize(800,600);
+		Toolkit kit = Toolkit.getDefaultToolkit(); // 定义工具包 
+		Dimension screenSize = kit.getScreenSize(); // 获取屏幕的尺寸 
+		int screenWidth = screenSize.width/2; // 获取屏幕的宽
+		int screenHeight = screenSize.height/2; // 获取屏幕的高
+		int height = this.getHeight();
+		int width = this.getWidth(); 
+		setLocation(screenWidth-width/2, screenHeight-height/2);
 		GridBagLayout layout = new GridBagLayout();
 		setLayout(layout);		
 		
@@ -81,7 +88,7 @@ class FrontFrame extends JFrame
 		startbutton = new JButton("  开始抓取  ");
 		endbutton = new JButton("  结束抓取  ");
 		JButton searchbutton = new JButton("数据包查询");
-		JButton rebutton = new JButton(" 报文重组   ");
+		JButton rebutton = new JButton("IP分片重组 ");
 		JButton savebutton = new JButton("   保存txt     ");
 		JButton filterbutton = new JButton("  包过滤       ");
 				
@@ -149,13 +156,14 @@ class FrontFrame extends JFrame
 		//监听
 		ActionListener devicelistener = new DeviceAction();
 		ActionListener capturelistener = new CaptureAction();
-		ActionListener endlistener = new EndAction();		
+		ActionListener endlistener = new EndAction();
+		ActionListener rebuttonlistener = new RebuttonAction();
 		
 		card.addActionListener(devicelistener);
 		startbutton.addActionListener(capturelistener);
 		endbutton.addActionListener(endlistener);
 	//	searchbutton.addActionListener(listener);
-	//	rebutton.addActionListener(listener);
+		rebutton.addActionListener(rebuttonlistener);
 	//	savebutton.addActionListener(listener);
 	//	filterbutton.addActionListener(listener);		
 		
@@ -204,7 +212,7 @@ class FrontFrame extends JFrame
 		public void actionPerformed(ActionEvent event)
 		{
 		//	if(event.g)
-			thread.stop();
+/////			thread.stop();
 			thread = null;
 			flag = false;
 			System.out.println("click end");
@@ -217,6 +225,24 @@ class FrontFrame extends JFrame
 		public void actionPerformed(ActionEvent event)
 		{
 			networkinterfaceNumber = card.getSelectedIndex();
+		}	
+	}
+	
+	//点击报文重组
+	private class RebuttonAction implements ActionListener
+	{  
+		public void actionPerformed(ActionEvent event)
+		{    
+			JFrame frame1 = new JFrame("IP分片重组");
+			frame1.setLocationRelativeTo(card);
+			frame1.setSize(500, 300);
+			
+			final JTextArea text = new JTextArea();
+			text.setLineWrap(true); 
+			JScrollPane textscrollPane = new JScrollPane(text);
+			text.setText(sniffer.rebuild());
+			frame1.getContentPane().add(textscrollPane);
+			frame1.setVisible(true);			
 		}	
 	}
 
@@ -259,35 +285,31 @@ class Sniffer
 	        return hs.toUpperCase();   
 	}
 	
+	//抓包
 	public Packet getpacket() throws IOException{
 		JpcapCaptor captor = JpcapCaptor.openDevice(devices[FrontFrame.networkinterfaceNumber], 65535, false, 20);
 		Packet packet = captor.getPacket();
 		while(packet == null)
 			packet = captor.getPacket();
 		list.add(packet);
+		
 		return packet;
 	}
 	
-	//得到报头及详细信息
+	//得到报头(调用函数取得)及表格中详细信息
 	public String[] getInfo(Packet packet) throws IOException
 	{	
 		String s[] = new String[7];
-		String str[] = new String[2000];//最后改65536成
+	//	String str[] = new String[2000];//最后改65536成
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		gethead(packet);
 		getiphead(packet);
-	//	Packet packet = getpacket();
 
 		//详细信息输出及16进制
 		if(packet != null && packet.data != null){
 			infodata[count] = "信息：" + "\n" + new String(packet.data, "UTF-8");
-		//	System.out.println(infodata[infodatacount]);
-		//	count++;
 			hexdata[count] = "16进制：\n" + BytesToHexString(packet.data);
-	    //    count++;
-		}
-//		else
-//			return null;	
+		}	
 		
         //TCP包 报头及协议分析
 		if(packet instanceof jpcap.packet.TCPPacket){
@@ -309,8 +331,6 @@ class Sniffer
 			s[2] = String.valueOf(p.src_ip);
 			s[3] = String.valueOf(p.dst_ip);
 			s[4] = "UDP";
-			//s[5] = String.valueOf(p.data);	
-			//ss = new String(p.data,"UTF-8");
 			s[5] = String.valueOf(Arrays.toString(p.data));
 			s[6] = String.valueOf(p.length);
 		}
@@ -346,6 +366,7 @@ class Sniffer
 		return s;//表格中的数据		
 	}
 	
+	//取得IP报头
 	public String getiphead(Packet packet) throws IOException{
 		//IP报头
 		//Packet packet = getpacket();
@@ -356,7 +377,7 @@ class Sniffer
 		         "头长度： "+String.valueOf(ipp.header.length) + "\n" +
 		         "服务类型： "+String.valueOf(ipp.header[1]) + "\n" +
 		         "总长度："+String.valueOf(ipp.len) + "\n" +
-		         "标识： "+String.valueOf(ipp.flow_label) + "\n" +
+		         "标识： "+String.valueOf(ipp.ident) + "\n" +
 		         "DF："+String.valueOf(ipp.dont_frag) + "\n" +
 		         "MF："+String.valueOf(ipp.more_frag) + "\n" +
 		         "分段偏移量： "+String.valueOf(ipp.offset) + "\n" +
@@ -372,6 +393,7 @@ class Sniffer
 		return iphead[count];
 	}
 	
+	//取得其他报头
 	public String gethead(Packet packet) throws IOException{
 	//	Packet packet = getpacket();
 		count = list.indexOf(packet);
@@ -425,5 +447,108 @@ class Sniffer
 	    return subhead[count];
 	}
 	
+	//IP分片重组
+	public String rebuild(){
+		int[] id = new int[list.size()];
+		int c = 0;
+		String str = "";
+		boolean flag = false;
+	//	int j = 0;
+		for(int i = 0 ; i < list.size(); i++){
+			if(list.get(i) instanceof jpcap.packet.IPPacket){
+				IPPacket ipp = (IPPacket)list.get(i);
+				id[i] = ipp.ident;
+			}
+			else
+				id[i] = -1;
+		}
+		Arrays.sort(id);
+		for(int i = 0 ; i < list.size()-1; i++){
+			if(id[i] == id[i+1] && id[i] != -1){
+				flag = true;//需要重组
+				c = id[i];//需要重组的标识号
+				break;
+			}
+		}
+		if(id[list.size()-2] == id[list.size()-1] && id[list.size()-2] != -1)
+			flag = true;
+		
+		if(flag == false){
+			str = "None.";
+		}else{
+			int[] reid = new int[list.size()];
+			int max = 0;
+			for(int i = 0 ; i < list.size()-1; i++){
+				if(id[i] == c){
+					reid[max] = i;
+					max++;
+				}//reid中存放包的标号
+			}
+			
+		//	int[] re = new int[max];//需要重组的报文的下标且无0
+			int[] offset = new int[max];//分段偏移量
+			boolean[] mf = new boolean[max];//判断分段是否结束
+			String[] data = new String[max];
+			for(int i = 0 ; i < max; i++){
+				IPPacket ipp = (IPPacket)list.get(reid[i]);
+				offset[i] = ipp.offset;
+				mf[i] = ipp.more_frag;
+				data[i] = Arrays.toString(ipp.data);
+			}
+			
+			//冒泡
+			int temp = 0;
+			boolean b;
+			String s = "";
+	        for(int i = 0; i < max; i++){
+	            for(int k = i; k < max; k++){
+	                if(offset[i] > offset[k]){
+	                    temp = offset[i];
+	                    offset[i] = offset[k];
+	                    offset[k] = temp;
+	                    b = mf[i];
+	                    mf[i] = mf[k];
+	                    mf[k] = b;
+	                    s = data[i];
+	                    data[i] = data[k];
+	                    data[k] = s;
+	                }
+	            }
+	        }
+	        
+	        boolean iscomplete = true;
+	        if(mf[max-1] == true)
+	        	str = "The package is not complete.";
+	        else{
+	        	if(max >= 3){
+	        	    for(int i = 0; i < max-2; i++){
+	        		    if(offset[i+2] - offset[i+1] != offset[i+i] - offset[i]){
+	        			//如果完整，偏移量的差应相同，都是最大长度。不完整可能出现跳变
+	        			    str = "The package is not complete.";
+	        			    iscomplete = false;
+	        			    break;
+	        		    }	        			
+	        	    }
+	        	    if(offset[max-1] - offset[max-2] > offset[max-2] - offset[max-3]){
+	        		//如果完整，最后的偏移量的差必定小于之前的。如果大于，说明之前都是连续的，但是后半部分连续缺少
+	        		    str = "The package is not complete.";
+        			    iscomplete = false;
+	        	    }
+	        	    if(iscomplete == true){
+	        		    for(int i = 0; i < max; i++){
+	        			    str = str + data[i];
+	        		    }
+	        	    }
+	        	}
+	        	else if(max == 2){
+	        		if(offset[0] == 0 && offset[1]-offset[0] < 65535)
+	        			str = str + data[0] + data[1];
+	        		else
+	        			str = "The package is not complete.";
+	        	}
+	        }	        	
+		}
+		return str;
+	}
 }
 
