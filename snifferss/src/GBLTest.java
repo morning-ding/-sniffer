@@ -2,7 +2,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 
 import GBC.GBC;
 import javax.swing.*;
@@ -168,7 +170,7 @@ class FrontFrame extends JFrame
 			while(flag){				
 		         try {
 		        	 try {
-						tablemodel.addRow(sniffer.getInfo());
+						tablemodel.addRow(sniffer.getInfo(sniffer.getpacket()));
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -222,10 +224,11 @@ class FrontFrame extends JFrame
 
 class Sniffer
 {
+	public static ArrayList list = new ArrayList();
 	public static String[] infodata = new String[200];
-	int infodatacount = 0;
+	//int infodatacount = 0;
 	public static String[] hexdata = new String[200];
-	int hexdatacount = 0;
+	//int hexdatacount = 0;
 	public NetworkInterface[] devices = JpcapCaptor.getDeviceList();
 	public int count = 0;
 	public String ss = new String();
@@ -261,26 +264,27 @@ class Sniffer
 		Packet packet = captor.getPacket();
 		while(packet == null)
 			packet = captor.getPacket();
+		list.add(packet);
 		return packet;
 	}
 	
 	//得到报头及详细信息
-	public String[] getInfo() throws IOException
+	public String[] getInfo(Packet packet) throws IOException
 	{	
 		String s[] = new String[7];
 		String str[] = new String[2000];//最后改65536成
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		gethead();
-		getiphead();
-		Packet packet = getpacket();
+		gethead(packet);
+		getiphead(packet);
+	//	Packet packet = getpacket();
 
 		//详细信息输出及16进制
 		if(packet != null && packet.data != null){
-			infodata[infodatacount] = "信息：" + "\n" + new String(packet.data, "UTF-8");
+			infodata[count] = "信息：" + "\n" + new String(packet.data, "UTF-8");
 		//	System.out.println(infodata[infodatacount]);
-			infodatacount++;
-			hexdata[hexdatacount] = "16进制：\n" + BytesToHexString(packet.data);
-	        hexdatacount++;
+		//	count++;
+			hexdata[count] = "16进制：\n" + BytesToHexString(packet.data);
+	    //    count++;
 		}
 //		else
 //			return null;	
@@ -289,59 +293,63 @@ class Sniffer
 		if(packet instanceof jpcap.packet.TCPPacket){
 			TCPPacket p = (TCPPacket)packet;
 			s[0] = String.valueOf(count);
-			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
+			s[1] = String.valueOf(df.format(new Date()));
 			s[2] = String.valueOf(p.src_ip);
 			s[3] = String.valueOf(p.dst_ip);
-			s[4] = String.valueOf(p.protocol);
-			s[5] = ss;
+			s[4] = "TCP";
+			s[5] = String.valueOf(Arrays.toString(p.data));
 			s[6] = String.valueOf(p.length);			
-			System.out.println(str);
+		//	System.out.println(str);
 		}
 		//UDP包
 		else if(packet instanceof jpcap.packet.UDPPacket){
 			UDPPacket p=(UDPPacket)packet; 
 			s[0] = String.valueOf(count);
-		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
+			s[1] = String.valueOf(df.format(new Date()));
 			s[2] = String.valueOf(p.src_ip);
 			s[3] = String.valueOf(p.dst_ip);
 			s[4] = "UDP";
 			//s[5] = String.valueOf(p.data);	
-			ss = new String(p.data,"UTF-8");
-			s[5] = ss;
+			//ss = new String(p.data,"UTF-8");
+			s[5] = String.valueOf(Arrays.toString(p.data));
 			s[6] = String.valueOf(p.length);
 		}
 		//ICMP包
 		else if(packet instanceof jpcap.packet.ICMPPacket){
 			ICMPPacket p=(ICMPPacket)packet; 
 			s[0] = String.valueOf(count);
-			s[1] = "";//String.valueOf(df.format(System.currentTimeMillis()));
+			s[1] = String.valueOf(df.format(new Date()));
 			s[2] = String.valueOf(p.src_ip);
 			s[3] = String.valueOf(p.dst_ip);
 			s[4] = "ICMP";
-			s[5] = String.valueOf(p.code);	
+			s[5] = String.valueOf(Arrays.toString(p.data));	
 			s[6] = String.valueOf(p.length);
 		}
 		//ARP包
 		else if(packet instanceof jpcap.packet.ARPPacket){
 			ARPPacket p=(ARPPacket)packet;
 			s[0] = String.valueOf(count);
-		//	s[1] = String.valueOf(df.format(System.currentTimeMillis()));
+			s[1] = String.valueOf(df.format(new Date()));
 			s[2] = String.valueOf(p.getSenderHardwareAddress());
 			s[3] = String.valueOf(p.getTargetHardwareAddress());
 			s[4] = "ARP";
-			s[5] = " ";		
+			s[5] = String.valueOf(Arrays.toString(p.data));	
 			s[6] = String.valueOf(p.len);
 	    }else{
-	    	//s[0] = String.valueOf(count);
-			count--;
+	    	s[0] = String.valueOf(count);
+	    	s[1] = String.valueOf(df.format(new Date()));
+	    	s[4] = "其他包";
+	    	s[5] = String.valueOf(Arrays.toString(packet.data));	
+			s[6] = String.valueOf(packet.len);
 	    }
 		count++;
 		return s;//表格中的数据		
 	}
 	
-	public String getiphead() throws IOException{
+	public String getiphead(Packet packet) throws IOException{
 		//IP报头
-		Packet packet = getpacket();
+		//Packet packet = getpacket();
+		count = list.indexOf(packet);
 		if((packet instanceof jpcap.packet.IPPacket)){
 		    IPPacket ipp = (IPPacket)packet;
 		    iphead[count] = "IP报头\n" + "版本：" + String.valueOf(ipp.version) + "\n" +
@@ -359,13 +367,14 @@ class Sniffer
 		         "目的地址："+String.valueOf(ipp.dst_ip) + "\n" +
 		         "选项： "+String.valueOf(ipp.option) + "\n\n";
 		}else{
-			iphead[count] = "无ip报头\n";
+			iphead[count] = "无ip报头\n\n ";
 		}
 		return iphead[count];
 	}
 	
-	public String gethead() throws IOException{
-		Packet packet = getpacket();
+	public String gethead(Packet packet) throws IOException{
+	//	Packet packet = getpacket();
+		count = list.indexOf(packet);
 		if(packet instanceof jpcap.packet.TCPPacket){
 			TCPPacket p = (TCPPacket)packet;
 			subhead[count] = "TCP报头\n"+"源端口号："+String.valueOf(p.src_port)+"\n"+
