@@ -1,5 +1,9 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.io.BufferedWriter;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -89,7 +93,7 @@ class FrontFrame extends JFrame
 		endbutton = new JButton("  结束抓取  ");
 		JButton searchbutton = new JButton("数据包查询");
 		JButton rebutton = new JButton("IP分片重组 ");
-		JButton savebutton = new JButton("   保存txt     ");
+		JButton savebutton = new JButton("保存为文件");
 		JButton filterbutton = new JButton("  包过滤       ");
 				
 		//抓到的包
@@ -158,13 +162,14 @@ class FrontFrame extends JFrame
 		ActionListener capturelistener = new CaptureAction();
 		ActionListener endlistener = new EndAction();
 		ActionListener rebuttonlistener = new RebuttonAction();
+		ActionListener savebuttonlistener = new SavebuttonAction();
 		
 		card.addActionListener(devicelistener);
 		startbutton.addActionListener(capturelistener);
 		endbutton.addActionListener(endlistener);
 	//	searchbutton.addActionListener(listener);
 		rebutton.addActionListener(rebuttonlistener);
-	//	savebutton.addActionListener(listener);
+		savebutton.addActionListener(savebuttonlistener);
 	//	filterbutton.addActionListener(listener);		
 		
 		System.out.println("end");
@@ -246,6 +251,34 @@ class FrontFrame extends JFrame
 		}	
 	}
 
+	//点击保存
+	private class SavebuttonAction implements ActionListener{
+		public void actionPerformed(ActionEvent event){
+			File file = new File("d:/result.doc");
+			FileWriter fw;
+			try {
+				fw = new FileWriter(file);
+				BufferedWriter bw = new BufferedWriter(fw);
+				for(int i = 0; i < Sniffer.count; i++){
+					if(table.isRowSelected(i)==true){
+						if(Sniffer.list.get(i) instanceof jpcap.packet.IPPacket){
+						    bw.write(String.valueOf(i) + ":\n" + Sniffer.iphead[i] + Sniffer.subhead[i] + 
+								    "数据：\n" + Sniffer.infodata[i] + "\n\n");		
+						}else if(Sniffer.list.get(i) instanceof jpcap.packet.ARPPacket){
+					 	    bw.write(String.valueOf(i) + ":\n" + Sniffer.subhead[i] + 
+					 			   "数据：\n" + Sniffer.infodata[i] + "\n\n");	
+						}else{
+						    bw.write(String.valueOf(i) + ":\n" + "数据：\n" + Sniffer.infodata[i] + "\n\n");	
+						}
+					}  
+				}
+				bw.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}	       
+		}		
+	}
 }
 
 class Sniffer
@@ -256,7 +289,7 @@ class Sniffer
 	public static String[] hexdata = new String[200];
 	//int hexdatacount = 0;
 	public NetworkInterface[] devices = JpcapCaptor.getDeviceList();
-	public int count = 0;
+	public static int count = 0;
 	public String ss = new String();
 	public static String[] iphead = new String[200];
 	public static String[] subhead = new String[200];
@@ -550,5 +583,7 @@ class Sniffer
 		}
 		return str;
 	}
+
+	
 }
 
